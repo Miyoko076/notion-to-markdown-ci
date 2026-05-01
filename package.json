@@ -1,0 +1,35 @@
+{
+  "name": "notion-to-markdown-ci",
+  "version": "1.0.0",
+  "description": "Convert Notion workspace to Markdown files",
+  "author": "Miyoko076 <miyoko076@inbox.lv>",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Miyoko076/notion-to-markdown-ci"
+  },
+  "main": "index.ts",
+  "scripts": {
+    "dev": "tsx index.ts",
+    "build": "ncc build index.ts -o dist --source-map",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@actions/core": "2.0.3",
+    "@notionhq/client": "^2.3.0",
+    "@sindresorhus/slugify": "3.0.0",
+    "bottleneck": "^2.19.5",
+    "common-tags": "^1.8.2",
+    "get-video-id": "3.7.0",
+    "notion-to-md": "4.0.0-alpha.7",
+    "prettier": "^2.8.8"
+  },
+  "devDependencies": {
+    "@types/common-tags": "^1.8.2",
+    "@types/node": "^20.0.0",
+    "@types/prettier": "^2.7.3",
+    "@vercel/ncc": "^0.38.4",
+    "tsx": "^4.21.0",
+    "typescript": ">=5.3.3 <6.0.0"
+  }
+}

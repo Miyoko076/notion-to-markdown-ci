@@ -1,0 +1,43 @@
+name: 'notion-to-markdown-ci'
+description: 'Convert Notion workspace to Markdown files'
+
+inputs:
+  NOTION-TOKEN:
+    description: 'Notion Integration Internal Integration Secret Token'
+    required: true
+  maxRetries:
+    description: 'Maximum number of retries for failed API requests'
+    required: false
+    default: '7'
+  outputDir:
+    description: 'Root directory for all output files'
+    required: false
+    default: './'
+  mediaDirName:
+    description: 'Name of the subdirectory inside `outputDir` for downloaded media files'
+    required: false
+    default: 'assets'
+  frontmatter:
+    description: 'Whether to include YAML frontmatter in the output markdown'
+    required: false
+    default: 'false'
+  enableDefaultFrontmatterMetadata:
+    description: 'Whether to include `id`, `created`, and `updated` metadata fields'
+    required: false
+    default: 'true'
+  embedMedia:
+    description: 'Whether to render videos and embeds as interactive elements'
+    required: false
+    default: 'true'
+  enableKramdownTogglePatch:
+    description: 'Whether to use kramdown-style toggle/details blocks for Notion toggles'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'node24'
+  main: 'dist/index.js'
+
+branding:
+  icon: 'inbox'
+  color: 'white'
