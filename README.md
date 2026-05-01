@@ -36,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: Miyoko076/notion-to-markdown-ci@master
+      - uses: Miyoko076/notion-to-markdown-ci@main
         with:
           NOTION-TOKEN: ${{ secrets.NOTION_TOKEN }}
           outputDir: './docs'
