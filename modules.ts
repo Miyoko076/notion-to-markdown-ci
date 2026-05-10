@@ -62,9 +62,23 @@ function getTitle(page: PageObjectResponse | DatabaseObjectResponse): string {
   return plain_title || `untitled-${page.id.slice(0, 8)}`;
 }
 
+function sortChildrenByCreated(nodes: NotionTreeNode[]) {
+  nodes.sort((a, b) =>
+    a.created_time.localeCompare(b.created_time) || a.id.localeCompare(b.id)
+  );
+  for (const node of nodes) sortChildrenByCreated(node.children);
+}
+
 function assignFilePaths(nodes: NotionTreeNode[], parentPath = "") {
+  const usedSlugs = new Set<string>();
   for (const node of nodes) {
-    const slug = node.title_slug;
+    let slug = node.title_slug;
+    if (usedSlugs.has(slug)) {
+      let n = 1;
+      while (usedSlugs.has(`${node.title_slug}-${n}`)) n++;
+      slug = `${node.title_slug}-${n}`;
+    }
+    usedSlugs.add(slug);
     node.filePath = parentPath ? `${parentPath}/${slug}` : `/${slug}`;
     assignFilePaths(node.children, node.filePath);
   }
@@ -205,6 +219,7 @@ export async function fetchNotionTree(notion: Client, maxRetries: number): Promi
     }
   }
 
+  sortChildrenByCreated(rootNodes);
   assignFilePaths(rootNodes);
   return rootNodes;
 }
