@@ -1,6 +1,6 @@
 {
   "name": "notion-to-markdown-ci",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Convert Notion workspace to Markdown files",
   "author": "Miyoko076 <miyoko076@inbox.lv>",
   "license": "ISC",
