@@ -9,7 +9,6 @@ A GitHub Action that converts your entire Notion workspace into Markdown files, 
 - Downloads and localizes media files (images, videos)
 - Resolves internal Notion page links to relative file paths
 - Optional frontmatter generation with page metadata
-- Optional kramdown-compatible `<details>`/`<summary>` blocks for Notion toggles and toggleable headings
 - Optional `<iframe>`/`<video>` embeds for YouTube, Vimeo, and local video blocks
 
 ## Usage
@@ -44,7 +43,6 @@ jobs:
           frontmatter: 'true'
           enableDefaultFrontmatterMetadata: 'true'
           embedMedia: 'true'
-          enableKramdownTogglePatch: 'true'
 
       - uses: actions/upload-artifact@v7
         with:

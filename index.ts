@@ -35,7 +35,6 @@ async function run(): Promise<void> {
       frontmatter: getOptionalBoolean('frontmatter'),
       enableDefaultFrontmatterMetadata: getOptionalBoolean('enableDefaultFrontmatterMetadata'),
       embedMedia: getOptionalBoolean('embedMedia'),
-      enableKramdownTogglePatch: getOptionalBoolean('enableKramdownTogglePatch'),
     });
 
     const token = core.getInput('NOTION-TOKEN', { required: true });
@@ -67,14 +66,6 @@ async function run(): Promise<void> {
     if (!config.embedMedia) {
       delete blockTransformers.video;
       delete blockTransformers.embed;
-    }
-    if (!config.enableKramdownTogglePatch) {
-      delete blockTransformers.toggle;
-      delete blockTransformers.heading_1;
-      delete blockTransformers.heading_2;
-      delete blockTransformers.heading_3;
-      // @ts-ignore
-      delete blockTransformers.heading_4;
     }
 
     core.info('Starting Notion workspace conversion...');

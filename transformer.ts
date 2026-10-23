@@ -30,13 +30,7 @@ const INDENT = '    '; // 4 whitespace = tab space (keeping it consistent)
  * ==========================================
  */
 export const customAnnotationTransformers: Partial<Record<NotionAnnotationType, AnnotationTransformer>> = {
-  /*
-  bold: {
-    transform: async ({ text, annotations, link, metadata, manifest }) => {
-      return `<strong>${text}</strong>`;
-    },
-  },
-  */
+  // Add custom annotation transformers here, keyed by annotation type (bold, italic, code, ...).
 };
 
 
@@ -46,14 +40,7 @@ export const customAnnotationTransformers: Partial<Record<NotionAnnotationType, 
  * ==========================================
  */
 export const customPropertyTransformers: Partial<Record<NotionDatabasePropertyType, DatabasePropertyTransformer>> = {
-  /*
-  date: {
-    transform: async ({ property, properties, block, utils, metadata }) => {
-      if (property.type !== 'date' || !property.date) return '';
-      return property.date.start; 
-    },
-  },
-  */
+  // Add custom database property transformers here, keyed by property type (date, select, ...).
 };
 
 
@@ -90,161 +77,6 @@ export const customBlockTransformers: Partial<Record<NotionBlockType, BlockTrans
       // Use mapped language if it exists, otherwise fallback to the original
       const mappedLang = languageMap[originalLang] || originalLang;
       return `\`\`\`${mappedLang}\n${text}\n\`\`\`\n\n`;
-    },
-  },
-
-  toggle: {
-    transform: async ({ block, utils, metadata = {} }) => {
-      const toggleBlock = (block as any).toggle;
-      const text = await utils.transformRichText(toggleBlock.rich_text, {
-        html: true,
-      });
-
-      if (!block.children?.length) {
-        return `<details markdown="1">\n<summary>\n${text}\n</summary>\n</details>\n`;
-      }
-
-      const baseLevel = (metadata.listLevel || 0) + 1;
-      let currentNumber = 1;
-      const childrenContent: string[] = [];
-
-      for (const child of block.children) {
-        const isNumberedList = child.type === 'numbered_list_item';
-        if (!isNumberedList) currentNumber = 1;
-
-        const childMetadata = isNumberedList
-          ? { currentNumber, listLevel: baseLevel }
-          : { listLevel: baseLevel };
-        const content = await utils.processBlock(child, childMetadata);
-        childrenContent.push(content);
-
-        if (isNumberedList) currentNumber++;
-      }
-
-      return `<details markdown="1">\n<summary>${text}</summary>\n\n${childrenContent.join('\n')}\n\n</details>\n`;
-    },
-  },
-
-  heading_1: {
-    transform: async ({ block, utils }) => {
-      const headingBlock = (block as any).heading_1;
-      const isToggle = headingBlock.is_toggleable;
-      const text = await utils.transformRichText(headingBlock.rich_text);
-
-      if (!isToggle) return `# ${text}\n`;
-
-      let currentNumber = 1;
-      const childrenContent: string[] = [];
-
-      const uniqueId = `toc-${block.id.replace(/-/g, '')}`;
-
-      if (block.children?.length) {
-        for (const child of block.children) {
-          const isNumberedList = child.type === 'numbered_list_item';
-          if (!isNumberedList) currentNumber = 1;
-
-          const childMetadata = isNumberedList ? { currentNumber } : {};
-          const content = await utils.processBlock(child, childMetadata);
-          childrenContent.push(content);
-
-          if (isNumberedList) currentNumber++;
-        }
-      }
-
-      return `<details markdown="1">\n  <summary markdown="block">\n\n# ${text} {#${uniqueId}}\n\n  </summary>\n\n${childrenContent.join('\n')}\n\n</details>\n`;
-    },
-  },
-
-  heading_2: {
-    transform: async ({ block, utils }) => {
-      const headingBlock = (block as any).heading_2;
-      const isToggle = headingBlock.is_toggleable;
-      const text = await utils.transformRichText(headingBlock.rich_text);
-
-      if (!isToggle) return `## ${text}\n`;
-
-      let currentNumber = 1;
-      const childrenContent: string[] = [];
-
-      const uniqueId = `toc-${block.id.replace(/-/g, '')}`;
-
-      if (block.children?.length) {
-        for (const child of block.children) {
-          const isNumberedList = child.type === 'numbered_list_item';
-          if (!isNumberedList) currentNumber = 1;
-
-          const childMetadata = isNumberedList ? { currentNumber } : {};
-          const content = await utils.processBlock(child, childMetadata);
-          childrenContent.push(content);
-
-          if (isNumberedList) currentNumber++;
-        }
-      }
-
-      return `<details markdown="1">\n  <summary markdown="block">\n\n## ${text} {#${uniqueId}}\n\n  </summary>\n\n${childrenContent.join('\n')}\n\n</details>\n`;
-    },
-  },
-
-  heading_3: {
-    transform: async ({ block, utils }) => {
-      const headingBlock = (block as any).heading_3;
-      const isToggle = headingBlock.is_toggleable;
-      const text = await utils.transformRichText(headingBlock.rich_text);
-
-      if (!isToggle) return `### ${text}\n`;
-
-      let currentNumber = 1;
-      const childrenContent: string[] = [];
-
-      const uniqueId = `toc-${block.id.replace(/-/g, '')}`;
-
-      if (block.children?.length) {
-        for (const child of block.children) {
-          const isNumberedList = child.type === 'numbered_list_item';
-          if (!isNumberedList) currentNumber = 1;
-
-          const childMetadata = isNumberedList ? { currentNumber } : {};
-          const content = await utils.processBlock(child, childMetadata);
-          childrenContent.push(content);
-
-          if (isNumberedList) currentNumber++;
-        }
-      }
-
-      return `<details markdown="1">\n  <summary markdown="block">\n\n### ${text} {#${uniqueId}}\n\n  </summary>\n\n${childrenContent.join('\n')}\n\n</details>\n`;
-    },
-  },
-
-  // @ts-ignore
-  heading_4: {
-    transform: async ({ block, utils }: any) => {
-      const headingBlock = (block as any).heading_4;
-      if (!headingBlock) return '';
-
-      const isToggle = headingBlock.is_toggleable;
-
-      const text = await utils.transformRichText(headingBlock.rich_text);
-      if (!isToggle) return `#### ${text}\n`;
-
-      let currentNumber = 1;
-      const childrenContent: string[] = [];
-
-      const uniqueId = `toc-${block.id.replace(/-/g, '')}`;
-
-      if (block.children?.length) {
-        for (const child of block.children) {
-          const isNumberedList = child.type === 'numbered_list_item';
-          if (!isNumberedList) currentNumber = 1;
-
-          const childMetadata = isNumberedList ? { currentNumber } : {};
-          const content = await utils.processBlock(child, childMetadata);
-          childrenContent.push(content);
-
-          if (isNumberedList) currentNumber++;
-        }
-      }
-
-      return `<details markdown="1">\n  <summary markdown="block">\n\n#### ${text} {#${uniqueId}}\n\n  </summary>\n\n${childrenContent.join('\n')}\n\n</details>\n`;
     },
   },
 
@@ -594,17 +426,4 @@ export const customBlockTransformers: Partial<Record<NotionBlockType, BlockTrans
       return `${formattedItem}\n${childrenContent.join('\n')}\n` + listTermination;
     },
   },
-
-  /*
-  paragraph: {
-    transform: async ({ block, utils, metadata = {} }) => {
-      const text = await utils.transformRichText(
-        // @ts-ignore
-        block.paragraph.rich_text,
-      );
-      if (!text) return '';
-      return `<p class="custom-paragraph">${text}</p>\n`;
-    },
-  },
-  */
 };

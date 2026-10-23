@@ -29,10 +29,6 @@ inputs:
     description: 'Whether to render videos and embeds as interactive elements'
     required: false
     default: 'true'
-  enableKramdownTogglePatch:
-    description: 'Whether to use kramdown-style toggle/details blocks for Notion toggles'
-    required: false
-    default: 'false'
 
 runs:
   using: 'node24'

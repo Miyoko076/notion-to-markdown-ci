@@ -45,19 +45,6 @@ export interface ActionConfig {
    * @default true
    */
   embedMedia: boolean;
-
-  /**
-   * Whether to use kramdown-style toggle/details blocks for Notion toggles
-   * and toggleable headings (h1-h4).
-   *
-   * - true: Uses `<details markdown="1">` with `markdown="block"` on `<summary>`,
-   *   enabling kramdown to parse markdown syntax inside the block.
-   * - false: Falls back to the library's built-in renderer, which outputs
-   *   plain `<details>/<summary><h1>...</h1></summary>` without markdown parsing.
-   *
-   * @default false
-   */
-  enableKramdownTogglePatch: boolean;
 }
 
 export const CONFIG_DEFAULTS: ActionConfig = {
@@ -67,7 +54,6 @@ export const CONFIG_DEFAULTS: ActionConfig = {
   frontmatter: false,
   enableDefaultFrontmatterMetadata: true,
   embedMedia: true,
-  enableKramdownTogglePatch: false,
 };
 
 /**
