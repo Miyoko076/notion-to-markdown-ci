@@ -77,6 +77,44 @@ export const customBlockTransformers: Partial<Record<NotionBlockType, BlockTrans
     },
   },
 
+  // @ts-ignore
+  heading_4: {
+    transform: async ({ block, utils }: any) => {
+      // Get heading content
+      // @ts-ignore
+      const headingBlock = block.heading_4;
+      if (!headingBlock) return '';
+      const isToggle = headingBlock.is_toggleable;
+      // since markdown doesn't get renderer in HTML, on toggle enabled
+      // we parse annotations as HTML
+      const text = await utils.transformRichText(headingBlock.rich_text, {
+        html: isToggle,
+      });
+
+      // Simple heading case
+      if (!isToggle) {
+        return `#### ${text}\n\n`;
+      }
+
+      // Process children for toggleable heading
+      const childrenContent = block.children?.length
+        ? await Promise.all(
+            block.children.map((child: any) => utils.processBlock(child)),
+          )
+        : [];
+
+      // Build toggle with h4
+      return `<details>
+  <summary>
+  <h4>${text}</h4>
+  </summary>
+
+  ${childrenContent.join('\n')}
+
+</details>\n`;
+    },
+  },
+
   video: {
     transform: async (context: any) => {
       const escapeJSXAttribute = (str: string) => (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
