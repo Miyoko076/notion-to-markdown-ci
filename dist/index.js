@@ -95274,11 +95274,11 @@ const client_1 = __nccwpck_require__(8342);
 const notion_to_md_1 = __nccwpck_require__(9042);
 const utils_1 = __nccwpck_require__(2028);
 const types_1 = __nccwpck_require__(536);
-const renderer_1 = __nccwpck_require__(2721);
 const prettier_1 = __importDefault(__nccwpck_require__(5815));
 const core = __importStar(__nccwpck_require__(7484));
 const modules_js_1 = __nccwpck_require__(8627);
 const transformer_js_1 = __nccwpck_require__(6105);
+const renderer_js_1 = __nccwpck_require__(9335);
 const config_js_1 = __nccwpck_require__(6782);
 async function run() {
     try {
@@ -95320,7 +95320,7 @@ async function run() {
             if (node.type === 'page') {
                 await core.group(`Converting Page: ${node.filePath} ...`, async () => {
                     core.info(`Converting Page: ${node.filePath} ...`);
-                    const renderer = new renderer_1.MDXRenderer({
+                    const renderer = new renderer_js_1.SpacedMDXRenderer({
                         frontmatter: config.frontmatter && {
                             defaults: config.enableDefaultFrontmatterMetadata
                                 ? {
@@ -95333,7 +95333,8 @@ async function run() {
                     })
                         .createAnnotationTransformers(transformer_js_1.customAnnotationTransformers)
                         .createPropertyTransformers(transformer_js_1.customPropertyTransformers)
-                        .createBlockTransformers(blockTransformers);
+                        .createBlockTransformers(blockTransformers)
+                        .applyBlockLayout();
                     const converter = new notion_to_md_1.NotionConverter(notionClient)
                         .configureFetcher({ fetchPageProperties: true, maxRequestsPerSecond: 3 })
                         .withRenderer(renderer)
@@ -95614,6 +95615,94 @@ function getOptionalNumber(name) {
 
 /***/ }),
 
+/***/ 9335:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.SpacedMDXRenderer = void 0;
+const renderer_1 = __nccwpck_require__(2721);
+// to_do and bulleted share the '- ' marker, so consecutive items of either continue one markdown list.
+const LIST_FAMILY = {
+    bulleted_list_item: 'bullet',
+    to_do: 'bullet',
+    numbered_list_item: 'ordered',
+};
+// Blocks whose own text is directly followed by their children in the library output.
+const TEXT_WITH_CHILDREN = new Set(['bulleted_list_item', 'numbered_list_item', 'to_do', 'quote', 'callout']);
+// Must match the library's list indentation per level (notion-to-md 4.0.0-alpha.7, INDENT in blocks.ts).
+const LIST_INDENT_WIDTH = 4;
+// blockTree is the page's top-level blocks with nested children; indexed by id once per page.
+const treeIndexCache = new WeakMap();
+function treeEntryOf(blockTree, blockId) {
+    let entries = treeIndexCache.get(blockTree);
+    if (!entries) {
+        const map = new Map();
+        const walk = (blocks, parent) => blocks.forEach((block, i) => {
+            map.set(block.id, { parent, next: blocks[i + 1], index: i });
+            if (block.children?.length)
+                walk(block.children, block);
+        });
+        walk(blockTree);
+        treeIndexCache.set(blockTree, map);
+        entries = map;
+    }
+    return entries.get(blockId);
+}
+class SpacedMDXRenderer extends renderer_1.MDXRenderer {
+    // Column where each list item's text starts, recorded before its children are rendered.
+    contentColumns = new Map();
+    // Wraps every registered transformer (call after registering customs): blank line between siblings except same-family list items, blank line before the first non-list child of a list item/quote/callout, non-list list-item children indented to the item's content column.
+    applyBlockLayout() {
+        const blocks = this.context.transformers.blocks;
+        for (const [type, transformer] of Object.entries(blocks)) {
+            if (!transformer)
+                continue;
+            blocks[type] = {
+                ...transformer,
+                transform: async (context) => {
+                    const { block, blockTree, metadata = {} } = context;
+                    let itemPrefix = '';
+                    if (LIST_FAMILY[type]) {
+                        const marker = type === 'numbered_list_item' ? `${metadata.currentNumber || 1}. ` : '- ';
+                        itemPrefix = ' '.repeat(LIST_INDENT_WIDTH * (metadata.listLevel || 0)) + marker;
+                        this.contentColumns.set(block.id, itemPrefix.length);
+                    }
+                    let output = await transformer.transform.call(transformer, context);
+                    if (!output)
+                        return output;
+                    if (itemPrefix && !output.startsWith(itemPrefix)) {
+                        console.warn(`[notion-to-markdown-ci] List item ${block.id} does not start with '${itemPrefix}'; its children may be misaligned.`);
+                    }
+                    const entry = treeEntryOf(blockTree, block.id);
+                    const parent = entry?.parent;
+                    if (parent && !LIST_FAMILY[type]) {
+                        const column = this.contentColumns.get(parent.id);
+                        if (column !== undefined) {
+                            output = output.split('\n').map((line) => (line ? ' '.repeat(column) + line : line)).join('\n');
+                        }
+                        if (entry.index === 0 && TEXT_WITH_CHILDREN.has(parent.type)) {
+                            output = '\n' + output;
+                        }
+                    }
+                    const next = entry?.next;
+                    if (!next)
+                        return output;
+                    if (LIST_FAMILY[type] && LIST_FAMILY[type] === LIST_FAMILY[next.type])
+                        return output;
+                    return output.replace(/\n+$/, '') + '\n';
+                },
+            };
+        }
+        return this;
+    }
+}
+exports.SpacedMDXRenderer = SpacedMDXRenderer;
+
+
+/***/ }),
+
 /***/ 6105:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -95626,8 +95715,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.customBlockTransformers = exports.customPropertyTransformers = exports.customAnnotationTransformers = void 0;
 const common_tags_1 = __nccwpck_require__(9673);
 const get_video_id_1 = __importDefault(__nccwpck_require__(5965));
-// Used in ['to_do', 'bulleted_list_item', 'numbered_list_item']
-const INDENT = '    '; // 4 whitespace = tab space (keeping it consistent)
 /**
  * ==========================================
  * 1. Annotation Transformers
@@ -95761,162 +95848,6 @@ exports.customBlockTransformers = {
                 embedElement = `<figure className="${figureClassName}">\n${embedElement}\n</figure>`;
             }
             return embedElement + '\n';
-        },
-    },
-    bulleted_list_item: {
-        transform: async ({ block, utils, metadata = {}, blockTree }) => {
-            // First, handle this block's own content
-            const text = await utils.transformRichText(
-            // @ts-ignore
-            block.bulleted_list_item.rich_text);
-            const currentLevel = metadata.listLevel || 0;
-            const indent = INDENT.repeat(currentLevel);
-            const formattedItem = `${indent}- ${text}`;
-            // Check if the current block is the last item in its list group
-            let isEndOfList = false;
-            // @ts-ignore
-            if (block.parent?.type === 'page_id' && Array.isArray(blockTree)) {
-                const currentIndex = blockTree.findIndex((b) => b.id === block.id);
-                if (currentIndex !== -1) {
-                    const nextBlock = blockTree[currentIndex + 1];
-                    const listTypes = ['to_do', 'bulleted_list_item', 'numbered_list_item'];
-                    if (!nextBlock || !listTypes.includes(nextBlock.type)) {
-                        isEndOfList = true;
-                    }
-                }
-            }
-            const listTermination = isEndOfList ? '\n' : '';
-            // If no children, just return formatted content
-            if (!block.children?.length) {
-                return formattedItem + listTermination;
-            }
-            // Process each child block directly through processBlock
-            let childNumber = 1;
-            const childrenContent = [];
-            for (const childBlock of block.children) {
-                const isNumberedList = childBlock.type === 'numbered_list_item';
-                // Reset numbering if sequence is broken
-                if (!isNumberedList) {
-                    childNumber = 1;
-                }
-                const content = await utils.processBlock(childBlock, {
-                    ...metadata,
-                    listLevel: currentLevel + 1,
-                    currentNumber: isNumberedList ? childNumber : undefined,
-                });
-                childrenContent.push(content);
-                if (isNumberedList) {
-                    childNumber++;
-                }
-            }
-            // Combine everything with proper formatting
-            return `${formattedItem}\n${childrenContent.join('\n')}\n` + listTermination;
-        },
-    },
-    numbered_list_item: {
-        transform: async ({ block, utils, metadata = {}, blockTree }) => {
-            // Get the current nesting level
-            const currentLevel = metadata.listLevel || 0;
-            // The parent passes down the current number to its children
-            const currentNumber = metadata.currentNumber || 1;
-            // Create indentation based on level
-            const indent = INDENT.repeat(currentLevel);
-            // Process the item's text content
-            const text = await utils.transformRichText(
-            // @ts-ignore
-            block.numbered_list_item.rich_text);
-            // Format this item with proper number
-            const formattedItem = `${indent}${currentNumber}. ${text}`;
-            // Check if the current block is the last item in its list group
-            let isEndOfList = false;
-            // @ts-ignore
-            if (block.parent?.type === 'page_id' && Array.isArray(blockTree)) {
-                const currentIndex = blockTree.findIndex((b) => b.id === block.id);
-                if (currentIndex !== -1) {
-                    const nextBlock = blockTree[currentIndex + 1];
-                    const listTypes = ['to_do', 'bulleted_list_item', 'numbered_list_item'];
-                    if (!nextBlock || !listTypes.includes(nextBlock.type)) {
-                        isEndOfList = true;
-                    }
-                }
-            }
-            const listTermination = isEndOfList ? '\n' : '';
-            // If no children, just return this item
-            if (!block.children?.length) {
-                return formattedItem + listTermination;
-            }
-            // For items with children, process each child sequentially
-            // Each child starts with number 1 at its level
-            const childrenContent = [];
-            let childNumber = 1;
-            for (let i = 0; i < block.children.length; i++) {
-                const child = block.children[i];
-                const isNumberedList = child.type === 'numbered_list_item';
-                const childContent = await utils.processBlock(child, {
-                    ...metadata,
-                    listLevel: currentLevel + 1,
-                    currentNumber: isNumberedList ? childNumber : undefined, // Pass sequential numbers to siblings
-                });
-                if (isNumberedList) {
-                    childNumber++;
-                }
-                childrenContent.push(childContent);
-            }
-            // Combine this item with its children
-            return `${formattedItem}\n${childrenContent.join('\n')}\n` + listTermination;
-        },
-    },
-    to_do: {
-        transform: async ({ block, utils, metadata = {}, blockTree }) => {
-            // Get current nesting level for indentation
-            const currentLevel = metadata.listLevel || 0;
-            const indent = INDENT.repeat(currentLevel);
-            // @ts-ignore
-            const todoBlock = block.to_do;
-            const text = await utils.transformRichText(todoBlock.rich_text);
-            // Determine checkbox state - checked or unchecked
-            const checkbox = todoBlock.checked ? 'x' : ' ';
-            // Format the todo item with proper indentation and checkbox
-            const formattedItem = `${indent}- [${checkbox}] ${text}`;
-            // Check if the current block is the last item in its list group
-            let isEndOfList = false;
-            // @ts-ignore
-            if (block.parent?.type === 'page_id' && Array.isArray(blockTree)) {
-                const currentIndex = blockTree.findIndex((b) => b.id === block.id);
-                if (currentIndex !== -1) {
-                    const nextBlock = blockTree[currentIndex + 1];
-                    const listTypes = ['to_do', 'bulleted_list_item', 'numbered_list_item'];
-                    if (!nextBlock || !listTypes.includes(nextBlock.type)) {
-                        isEndOfList = true;
-                    }
-                }
-            }
-            const listTermination = isEndOfList ? '\n' : '';
-            // If this todo item has no children, return just the item
-            if (!block.children?.length) {
-                return formattedItem + listTermination;
-            }
-            // For todo items with children, process each child
-            // maintaining the proper hierarchy
-            let childNumber = 1;
-            const childrenContent = [];
-            for (const childBlock of block.children) {
-                const isNumberedList = childBlock.type === 'numbered_list_item';
-                // Reset numbering if sequence is broken
-                if (!isNumberedList) {
-                    childNumber = 1;
-                }
-                const content = await utils.processBlock(childBlock, {
-                    ...metadata,
-                    listLevel: currentLevel + 1,
-                    currentNumber: isNumberedList ? childNumber : undefined,
-                });
-                childrenContent.push(content);
-                if (isNumberedList) {
-                    childNumber++;
-                }
-            }
-            return `${formattedItem}\n${childrenContent.join('\n')}\n` + listTermination;
         },
     },
 };
