@@ -115,6 +115,26 @@ export const customBlockTransformers: Partial<Record<NotionBlockType, BlockTrans
     },
   },
 
+  callout: {
+    transform: async ({ block, utils }: any) => {
+      const calloutBlock = block.callout;
+      const text = await utils.transformRichText(calloutBlock.rich_text);
+      // A workspace custom emoji has no emoji character, so write its name as :name:
+      const customEmoji = calloutBlock.icon?.custom_emoji?.name;
+      const icon = calloutBlock.icon?.emoji || (customEmoji ? `:${customEmoji}:` : '');
+      const childrenContent = block.children?.length
+        ? await Promise.all(
+            block.children.map((child: any) => utils.processBlock(child)),
+          )
+        : [];
+      const lines = text.split('\n').map((line: string) => `> ${line}`).join('\n');
+      const formattedChildren = childrenContent.length
+        ? childrenContent.join('\n').split('\n').map((line: string) => `> ${line}`).join('\n')
+        : '';
+      return `> ${icon} ${lines}${formattedChildren ? `\n${formattedChildren}` : ''}\n\n`;
+    },
+  },
+
   video: {
     transform: async (context: any) => {
       const escapeJSXAttribute = (str: string) => (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

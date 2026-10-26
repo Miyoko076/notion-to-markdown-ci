@@ -95797,6 +95797,23 @@ exports.customBlockTransformers = {
 </details>\n`;
         },
     },
+    callout: {
+        transform: async ({ block, utils }) => {
+            const calloutBlock = block.callout;
+            const text = await utils.transformRichText(calloutBlock.rich_text);
+            // A workspace custom emoji has no emoji character, so write its name as :name:
+            const customEmoji = calloutBlock.icon?.custom_emoji?.name;
+            const icon = calloutBlock.icon?.emoji || (customEmoji ? `:${customEmoji}:` : '');
+            const childrenContent = block.children?.length
+                ? await Promise.all(block.children.map((child) => utils.processBlock(child)))
+                : [];
+            const lines = text.split('\n').map((line) => `> ${line}`).join('\n');
+            const formattedChildren = childrenContent.length
+                ? childrenContent.join('\n').split('\n').map((line) => `> ${line}`).join('\n')
+                : '';
+            return `> ${icon} ${lines}${formattedChildren ? `\n${formattedChildren}` : ''}\n\n`;
+        },
+    },
     video: {
         transform: async (context) => {
             const escapeJSXAttribute = (str) => (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
